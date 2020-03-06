@@ -1,0 +1,78 @@
+﻿<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Web Chat: Using Direct Line Speech</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://cdn.botframework.com/botframework-webchat/latest/webchat.js"></script>
+    <link href="https://cdn.botframework.com/botframework-webchat/latest/botchat.css" rel="stylesheet" />
+
+    <style>
+      .example {
+        float: left;
+        margin-right: 20px;
+        width: 300px;
+      }
+
+      .example > h2 {
+        font-family: 'Segoe UI';
+      }
+     html, body { height: 100% }
+     body { margin: 0 }
+     #webchat {
+       border: 1px solid #333;
+        float: left;
+        height: 600px;
+        position: relative;
+        width: 460px;
+     }
+    </style>
+  </head>
+  <body>
+    <section class="example">
+      <h2>Web Chat</h2>
+      <p>
+        This sample Web Chat
+      </p>
+    </section>
+
+    <div id="webchat" role="main"></div>
+
+    <script>
+         (async function () {
+               const styleOptions = {
+    	      bubbleBackground: 'rgba(0, 0, 255, .1)',
+    	      bubbleFromUserBackground: 'rgba(0, 255, 0, .1)',
+    	      hideUploadButton: true,
+    	      botAvatarInitials: 'Bot',
+                      userAvatarInitials: 'User'
+	};
+                const store = window.WebChat.createStore({}, ({ dispatch }) => next => action => {
+                   if (action.type === 'DIRECT_LINE/CONNECT_FULFILLED') {
+                       dispatch({
+                       type: 'WEB_CHAT/SEND_EVENT',
+                       payload: {
+                          name: 'webchat/join'
+                       }
+                   });
+                 }
+               return next(action);
+            });
+            window.WebChat.renderWebChat({
+            directLine: createDirectLine({
+                secret: 'ionGA2CgghU.3sHw9no7xTFGGrYTHRHnYn8PeKLINiM3lKesaJtpls4'
+              }),
+              store,
+              locale: 'en-US',
+              webSpeechPonyfillFactory: await createCognitiveServicesSpeechServicesPonyfillFactory({
+                region: 'eastasia',
+                subscriptionKey: 'c9092afee2794476889ccbcacb6fe1ee',
+                textNormalization: 'lexical'
+              }),
+            styleOptions
+            }, document.getElementById('webchat'));
+            document.querySelector('#webchat > *').focus();
+          })().catch(err => console.error(err));
+    </script>
+  </body>
+</html>
