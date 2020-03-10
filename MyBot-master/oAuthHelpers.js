@@ -45,8 +45,32 @@ class OAuthHelpers {
         }
 
         const client = new SimpleGraphClient(tokenResponse.token);
-        var schedule = await client.getSchedule() || '';
-        await context.sendActivity(`Schedule information: ${ JSON.stringify(schedule) }`);
+        const me = await client.getMe();
+        const schedule = await client.getSchedule(me.mail) || '';
+        var scheduleInfo = '';
+        var moment = require('moment');
+        if (schedule != '' && schedule.value.length > 0 && schedule.value[0].scheduleItems.length > 0) {
+            for (let cnt = 0; cnt < schedule.value[0].scheduleItems.length; cnt++) {
+                const scheduleItem = schedule.value[0].scheduleItems[cnt];
+                if (scheduleItem.status == 'busy') {
+                    if (scheduleInfo == '') {
+                        scheduleInfo = 'Subject: ' + scheduleItem.subject + '\r\n';
+                    } else {
+                        scheduleInfo += 'Subject: ' + scheduleItem.subject + '\r\n';
+                    }
+                    scheduleInfo += 'Location: ' + scheduleItem.location + '\r\n';
+                    var localeString = moment.parseZone(scheduleItem.start.dateTime).local().format('YYYY-MM-DD HH:mm:ss');
+                    scheduleInfo += 'StartTime: ' + localeString + '\r\n';
+                    localeString = moment.parseZone(scheduleItem.end.dateTime).local().format('YYYY-MM-DD HH:mm:ss');
+                    scheduleInfo += 'EndTime: ' + localeString + '\r\n';
+                }
+            }
+        }
+        if (scheduleInfo != '') {
+            scheduleInfo = 'Schedule information:\r\n' + scheduleInfo;
+        }
+        
+        await context.sendActivity(scheduleInfo);
     }
 
     static async getFindRooms(context, tokenResponse) {
@@ -78,7 +102,7 @@ class OAuthHelpers {
                 } else {
                     roomMessage += '\r\nrooms[' + local + ']: ' + '\r\nname: ' + room.name + '\r\naddress: ' + room.address;
                 }
-            }  
+            }
         }
         await context.sendActivity(roomMessage);
     }

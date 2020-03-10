@@ -103,32 +103,59 @@ class SimpleGraphClient {
             });
     }
 
-    async getSchedule() {
+    /**
+     * @param {string} mailAddress Email address of the email's recipient.
+     */
+    async getSchedule(mailAddress) {
         const startDate = new Date();
         const endDate = new Date();
-        startDate.setDate(startDate.getDate() - 1);
-        endDate.setDate(endDate.getDate() + 2);
-        return await this.graphClient
-            .api('/me/calendar/getSchedule')
-            .version('beta')
-            .post({
-                schedules: ['cainan@pactera.com'],
-                startTime: {
-                    dateTime: startDate.toJSON(),
-                    timeZone: 'Pacific Standard Time'
-                },
-                endTime: {
-                    dateTime: endDate.toJSON(),
-                    timeZone: 'Pacific Standard Time'
-                },
-                availabilityViewInterval: 60
-            }, (error, res) => {
-                if (error) {
-                    throw error;
-                } else {
-                    return res;
-                }
-            });
+        endDate.setDate(startDate.getDate() + 1);
+        endDate.setHours(0);
+        endDate.setMinutes(0);
+        endDate.setSeconds(0);
+        endDate.setMilliseconds(0);
+        const scheduleInformation = {
+            schedules: [mailAddress],
+            startTime: {
+                dateTime: startDate.toJSON(),
+                timeZone: "Pacific Standard Time"
+            },
+            endTime: {
+                dateTime: endDate.toJSON(),
+                timeZone: "Pacific Standard Time"
+            },
+            
+            availabilityViewInterval: 60
+        };
+
+        let res = await this.graphClient.api('/me/calendar/getSchedule')
+           .version('beta')
+           .post(scheduleInformation);
+
+        return res;
+        // return await this.graphClient
+        //     .api('/me/calendar/getSchedule')
+        //     .version('beta')
+        //     .post({
+        //         schedules: ['cainan@pactera.com'],
+        //         startTime: {
+        //             //dateTime: startDate.toJSON(),
+        //             dateTime: '2020-03-09 09:00:00',
+        //             timeZone: 'Pacific Standard Time'
+        //         },
+        //         endTime: {
+        //             //dateTime: endDate.toJSON(),
+        //             dateTime: '2020-03-09 18:00:00',
+        //             timeZone: 'Pacific Standard Time'
+        //         },
+        //         availabilityViewInterval: 60
+        //     }, (error, res) => {
+        //         if (error) {
+        //             throw error;
+        //         } else {
+        //             return res;
+        //         }
+        //     });
     }
 
     async getFindRooms() {
