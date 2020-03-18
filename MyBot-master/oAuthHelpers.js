@@ -68,6 +68,8 @@ class OAuthHelpers {
         }
         if (scheduleInfo != '') {
             scheduleInfo = 'Schedule information:\r\n' + scheduleInfo;
+        } else {
+            scheduleInfo = 'There are not Schedule information.';
         }
         
         await context.sendActivity(scheduleInfo);
@@ -105,6 +107,101 @@ class OAuthHelpers {
             }
         }
         await context.sendActivity(roomMessage);
+    }
+
+    static async getEvents(context, tokenResponse) {
+        if (!context) {
+            throw new Error('OAuthHelpers.getFindRooms(): `context` cannot be undefined.');
+        }
+        if (!tokenResponse) {
+            throw new Error('OAuthHelpers.getFindRooms(): `tokenResponse` cannot be undefined.');
+        }
+        // Pull in the data from Microsoft Graph.
+        const client = new SimpleGraphClient(tokenResponse.token);
+        const events = await client.getEvents() || '';
+        await context.sendActivity(`Events: ${ JSON.stringify(events) }`);
+    }
+
+    /**
+     * Displays informau'r'ntion about the user in the bot.
+     * @param {TurnContext} context A TurnContext instance containing all the data needed for processing this conversation turn.
+     * @param {TokenResponse} tokenResponse A response that includes a user token.
+     * @param {var} options A response that includes a user token.
+     */
+    static async addEvents(context, tokenResponse, options) {
+        if (!context) {
+            throw new Error('OAuthHelpers.getFindRooms(): `context` cannot be undefined.');
+        }
+        if (!tokenResponse) {
+            throw new Error('OAuthHelpers.getFindRooms(): `tokenResponse` cannot be undefined.');
+        }
+        // Pull in the data from Microsoft Graph.
+        const client = new SimpleGraphClient(tokenResponse.token);
+        const me = await client.getMe();
+        options['organizer'] = me.mail;
+        const contacts = await client.getContacts();
+        const parts = options['participants'].split(',');
+        var mailaddress = '';
+        if (Array.isArray(parts)) {
+            var contactsList = '';
+            for (let cnt = 0; cnt < parts.length; cnt++) {
+                const name = parts[cnt];
+                var isfind = false;
+                for (let index = 0; index < contacts.value.length; index++) {
+                    const person = contacts.value[index]; 
+                    if (cnt == 0) {
+                        if (contactsList == '') {
+                            contactsList = person.displayName;
+                        } else {
+                            contactsList +=  ',' + person.displayName;
+                        }
+                    }
+                    if (person.displayName == name) {
+                        if (mailaddress == '') {
+                            mailaddress = person.emailAddresses[0].address;
+                        } else {
+                            mailaddress +=  ',' + person.emailAddresses[0].address;
+                        }
+                        isfind = true;
+                    }
+                }
+                if (!isfind) {
+                    return await context.sendActivity(`Participant(${ JSON.stringify(name) }) is does not exist.Contacts List(${ JSON.stringify(contactsList) })`);
+                }
+            }
+        }
+        options['participants'] = mailaddress;
+        const rooms = await client.getFindRooms();
+        if (options['room'] != '') {
+            var isfind = false;
+            for (let cnt = 0; cnt < rooms.value.length; cnt++) {
+                const room = rooms.value[cnt];     
+                if (room.name == options['room']) {
+                    isfind = true;
+                    const schedule = await client.getSchedule(room.address) || '';
+                    var scheduleInfo = '';
+                    var moment = require('moment');
+                    if (schedule != '' && schedule.value.length > 0 && schedule.value[0].scheduleItems.length > 0) {
+                        for (let cnt = 0; cnt < schedule.value[0].scheduleItems.length; cnt++) {
+                            const scheduleItem = schedule.value[0].scheduleItems[cnt];
+                            if (scheduleItem.status == 'busy') {
+                                var startTime = moment.parseZone(scheduleItem.start.dateTime).local().format('YYYY-MM-DD HH:mm:ss');
+                                var endTime = moment.parseZone(scheduleItem.end.dateTime).local().format('YYYY-MM-DD HH:mm:ss');
+                                if ((startTime < options['startTime'] && options['startTime'] <  endTime)
+                                    || (startTime < options['endTime'] && options['endTime'] <  endTime)) {
+                                    return await context.sendActivity(`Room(${ JSON.stringify(room.name) }) is busy at ` + startTime + ` to ` + endTime);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (!isfind) {
+                return await context.sendActivity(`Room(` + options['room'] + `}) is does not exist.`);
+            }
+        }
+        const events = await client.addEvents(options) || '';
+        await context.sendActivity(`Events: ${ JSON.stringify(events) }`);
     }
 
     /**

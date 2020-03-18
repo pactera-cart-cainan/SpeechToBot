@@ -1,13 +1,14 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-const { ChoicePrompt, DialogSet, DialogTurnStatus, OAuthPrompt, TextPrompt, WaterfallDialog } = require('botbuilder-dialogs');
+const { ChoicePrompt, DialogSet, DialogTurnStatus, OAuthPrompt, TextPrompt, DateTimePrompt, WaterfallDialog } = require('botbuilder-dialogs');
 const { LogoutDialog } = require('./logoutDialog');
 const { OAuthHelpers } = require('../oAuthHelpers');
 
 const MAIN_WATERFALL_DIALOG = 'mainWaterfallDialog';
 const OAUTH_PROMPT = 'oAuthPrompt';
 const CHOICE_PROMPT = 'choicePrompt';
+const MEET_WATERFALL_DIALOG = 'meetWaterfallDialog';　
 const TEXT_PROMPT = 'textPrompt';
 
 class MainDialog extends LogoutDialog {
@@ -27,7 +28,57 @@ class MainDialog extends LogoutDialog {
                 this.loginStep.bind(this),
                 this.commandStep.bind(this),
                 this.processStep.bind(this)
+            ]))
+            .addDialog(new WaterfallDialog(MEET_WATERFALL_DIALOG, [
+                async (step) => {
+                    // Ask the meeting suject
+                    return await step.prompt('sujectPrompt', `Meeting's suject is?`);
+                },
+                async (step) => {
+                    // Remember the meeting suject
+                    //step.values['subject'] = step.result;
+                    step.stack[0].state.values['subject'] = step.result;
+                    // Ask the meeting's content
+                    return await step.prompt('textPrompt', `Meeting's content is?`);
+                },
+                async (step) => {
+                    // Remember the meeting content
+                    //step.values['subject'] = step.result;
+                    step.stack[0].state.values['content'] = step.result;
+                    // Ask the meeting's start time
+                    return await step.prompt('startTimePrompt', `Meeting's start time is?`);
+                },
+                async (step) => {
+                    // Remember the meeting start time
+                    //step.values['startTime'] = step.result;
+                    step.stack[0].state.values['startTime'] = step.result;
+                    // Ask the meeting's end time
+                    return await step.prompt('endTimePrompt', `Meeting's end time is?`);
+                },
+                async (step) => {
+                     // Remember the meeting end time
+                     //step.values['endTime'] = step.result;
+                     step.stack[0].state.values['endTime'] = step.result;
+                     // Ask the meeting's room
+                     return await step.prompt('textPrompt', `Meeting's room is?`);
+                },
+                async (step) => {
+                     // Remember the meeting localtion
+                     step.stack[0].state.values['room'] = step.result;
+                     // Ask the meeting's participants
+                     return await step.prompt('textPrompt', `Meeting's participants have?(use ',' to separate)`);
+                },
+                async (step) => {
+                    // Remember the meeting participants
+                    step.stack[0].state.values['participants'] = step.result;
+                    return await step.beginDialog(OAUTH_PROMPT);
+                }
             ]));
+
+        // Add prompts
+        this.addDialog(new TextPrompt('sujectPrompt'));
+        this.addDialog(new DateTimePrompt('startTimePrompt'));
+        this.addDialog(new DateTimePrompt('endTimePrompt'));
 
         this.initialDialogId = MAIN_WATERFALL_DIALOG;
     }
@@ -59,15 +110,14 @@ class MainDialog extends LogoutDialog {
         const tokenResponse = step.result;
         if (tokenResponse) {
             await step.context.sendActivity('You are now logged in.');
-            return await step.prompt(TEXT_PROMPT, { prompt: 'Would you like to do? (type \'me\', \'send <EMAIL>\', \'recent\',\'rooms\' or \'schedule\')' });
+            return await step.prompt(TEXT_PROMPT, { prompt: 'Would you like to do? (type \'me\', \'send <EMAIL>\', \'recent\',\'rooms\',\'meeting\'  or \'schedule\')' });
         }
         await step.context.sendActivity('Login was not successful please try again.');
         return await step.endDialog();
     }
 
     async commandStep(step) {
-        step.values['command'] = step.result;
-
+ 
         // Call the prompt again because we need the token. The reasons for this are:
         // 1. If the user is already logged in we do not need to store the token locally in the bot and worry
         // about refreshing it. We can always just call the prompt again to get the token.
@@ -76,7 +126,28 @@ class MainDialog extends LogoutDialog {
         //
         // There is no reason to store the token locally in the bot because we can always just call
         // the OAuth prompt to get the token or get a new token if needed.
-        return await step.beginDialog(OAUTH_PROMPT);
+        if (step.result) {
+
+            // If we have the token use the user is authenticated so we may use it to make API calls.
+            const parts = step.result.toLowerCase().split(' ');
+            if (Array.isArray(parts)) {
+                for (let cnt = 0; cnt < parts.length; cnt++) {
+                    const command = parts[cnt];
+
+                    switch (command) {
+                    case 'meeting':
+                        step.values['command'] = step.result;
+                        return await step.beginDialog(MEET_WATERFALL_DIALOG);
+                    default:
+                        step.values['command'] = step.result;
+                        return await step.beginDialog(OAUTH_PROMPT);
+                    }
+                }
+            }
+        } else {
+            await step.context.sendActivity('We couldn\'t log you in. Please try again later.');
+        }
+        //return await step.beginDialog(OAUTH_PROMPT);
     }
 
     async processStep(step) {
@@ -109,6 +180,21 @@ class MainDialog extends LogoutDialog {
                         case 'schedule':
                             await OAuthHelpers.getSchedule(step.context, tokenResponse);
                             break;
+                        case 'event':
+                            await OAuthHelpers.getEvents(step.context, tokenResponse);
+                            break;
+                        case 'meeting':
+                            var options = {
+                                subject : step.values['subject'],
+                                content : step.values['content'],
+                                startTime : step.values['startTime'],
+                                endTime : step.values['endTime'],
+                                room : step.values['room'],
+                                participants : step.values['participants'],
+                                organizer : ''
+                            }
+                            await OAuthHelpers.addEvents(step.context, tokenResponse, options);
+                            break;
                         default:
                             //await step.context.sendActivity(`Your token is ${ tokenResponse.token }`);
                             break;
@@ -116,11 +202,10 @@ class MainDialog extends LogoutDialog {
                     }
                 }
             }
+            return await step.endDialog();
         } else {
             await step.context.sendActivity('We couldn\'t log you in. Please try again later.');
-        }
-
-        return await step.endDialog();
+        }  
     }
 }
 

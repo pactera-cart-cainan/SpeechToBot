@@ -166,6 +166,86 @@ class SimpleGraphClient {
                 return res;
             });
     }
+
+    async getEvents() {
+        return await this.graphClient
+            .api('/me/events')
+            .header('Prefer','outlook.timezone="Pacific Standard Time"')
+            .version('beta')
+            .select('subject,organizer,attendees,start,end,location')
+            .get().then((res) => {
+                return res;
+            });
+    }
+
+    async getContacts() {
+        return await this.graphClient
+            .api('/me/contacts')
+            .version('beta')
+            .select('displayName,emailAddresses')
+            .get().then((res) => {
+                return res;
+            });
+    }
+
+    /**
+     * @param {var} options
+     */
+    async addEvents(options) {
+        
+        //options['startTime'];
+        var date1 = new Date().getFullYear() + "-" + (new Date().getMonth() + 1) + "-" + new Date().getDate();
+        var temp = date1 +  ' ' + options['startTime'][0].value;
+        const startDate = new Date(Date.parse(temp));
+        //options['endTime'];
+        temp = date1 +  ' ' + options['endTime'][0].value;
+        const endDate = new Date(Date.parse(temp));
+        const event = {
+            subject: options['subject'],
+            body: {
+              contentType: "HTML",
+              content: options['content']
+            },
+            start: {
+                //dateTime: options['startTime'],
+                dateTime: startDate.toJSON(),
+                timeZone: "Pacific Standard Time"
+            },
+            end: {
+                //dateTime: options['endTime'],
+                dateTime: endDate.toJSON(),
+                timeZone: "Pacific Standard Time"
+            },
+            location:{
+                displayName: options['room']
+            },
+            attendees: [],
+            organizer: {
+                emailAddress: {
+                    //name: "cainan",
+                    address: options['organizer']
+                }
+            }
+        };    
+        const parts = options['participants'].split(',');
+        if (Array.isArray(parts)) {
+            for (let cnt = 0; cnt < parts.length; cnt++) {
+                const name = parts[cnt];
+                var temp = {
+                    emailAddress : {
+                        address : name
+                    },
+                    type : "required"
+                }
+                event.attendees.push(temp);
+            }
+        }
+        let res = await this.graphClient
+            .api('/me/events')
+            .header('Prefer','outlook.timezone="Pacific Standard Time"')
+            .post(event);
+        return res;
+    }
 }
 
 exports.SimpleGraphClient = SimpleGraphClient;
