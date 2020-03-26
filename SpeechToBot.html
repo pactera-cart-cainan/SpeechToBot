@@ -1,78 +1,140 @@
 ﻿<!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="UTF-8" />
-    <title>Web Chat: Using Direct Line Speech</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script src="https://cdn.botframework.com/botframework-webchat/latest/webchat.js"></script>
-    <link href="https://cdn.botframework.com/botframework-webchat/latest/botchat.css" rel="stylesheet" />
 
-    <style>
-      .example {
-        float: left;
-        margin-right: 20px;
-        width: 300px;
-      }
+<head>
+  <meta charset="UTF-8" />
+  <title>Web Chat: Using Direct Line Speech</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdn.botframework.com/botframework-webchat/latest/webchat.js"></script>
+  <link href="https://cdn.botframework.com/botframework-webchat/latest/botchat.css" rel="stylesheet" />
 
-      .example > h2 {
-        font-family: 'Segoe UI';
-      }
-     html, body { height: 100% }
-     body { margin: 0 }
-     #webchat {
-       border: 1px solid #333;
-        float: left;
-        height: 600px;
-        position: relative;
-        width: 460px;
-     }
-    </style>
-  </head>
-  <body>
-    <section class="example">
-      <h2>Web Chat</h2>
-      <p>
-        This sample Web Chat
-      </p>
-    </section>
+  <style>
+    .example {
+      float: left;
+      margin-right: 20px;
+      width: 300px;
+    }
 
-    <div id="webchat" role="main"></div>
+    .example>h2 {
+      font-family: 'Segoe UI';
+    }
 
-    <script>
-         (async function () {
-               const styleOptions = {
-    	      bubbleBackground: 'rgba(0, 0, 255, .1)',
-    	      bubbleFromUserBackground: 'rgba(0, 255, 0, .1)',
-    	      hideUploadButton: true,
-    	      botAvatarInitials: 'Bot',
-                      userAvatarInitials: 'User'
-	};
-                const store = window.WebChat.createStore({}, ({ dispatch }) => next => action => {
-                   if (action.type === 'DIRECT_LINE/CONNECT_FULFILLED') {
-                       dispatch({
-                       type: 'WEB_CHAT/SEND_EVENT',
-                       payload: {
-                          name: 'webchat/join'
-                       }
-                   });
-                 }
-               return next(action);
-            });
-            window.WebChat.renderWebChat({
-            directLine: createDirectLine({
-                secret: '8IE0zTFYOG8.JcxJAa7lzJrFJBo357Oe0T9BNHABaktjIctcw0NZLK8'
-              }),
-              store,
-              locale: 'en-US',
-              webSpeechPonyfillFactory: await createCognitiveServicesSpeechServicesPonyfillFactory({
-                region: 'eastasia',
-                subscriptionKey: '18f056bb05ef48178fbdef787c7b0a02',
-                textNormalization: 'lexical'
-              }),
-            styleOptions
-            }, document.getElementById('webchat'));
-            document.querySelector('#webchat > *').focus();
-          })().catch(err => console.error(err));
-    </script>
-  </body>
+    html,
+    body {
+      height: 100%
+    }
+
+    body {
+      margin: 0
+    }
+
+    #webchat {
+      border: 1px solid #333;
+      float: left;
+      height: 600px;
+      position: relative;
+      width: 460px;
+    }
+  </style>
+</head>
+
+<body>
+  <section class="example">
+    <h2>Web Chat</h2>
+    <p>
+      This sample Web Chat
+    </p>
+  </section>
+
+  <div id="webchat" role="main"></div>
+
+  <script>
+    (async function () {
+      const styleOptions = {
+        bubbleBackground: 'rgba(0, 0, 255, .1)',
+        bubbleFromUserBackground: 'rgba(0, 255, 0, .1)',
+        hideUploadButton: true,
+        botAvatarInitials: 'Bot',
+        userAvatarInitials: ' '
+      };
+      const styleSet = window.WebChat.createStyleSet();
+      styleSet.avatar = {
+        ...styleSet.avatar,
+        '&.from-user': {
+          backgroundImage: 'url(\'https://github.com/compulim.png?size=64\')'
+        },
+        '&:not(.from-user)': {
+          backgroundImage: 'url(\'https://docs.microsoft.com/en-us/azure/bot-service/v4sdk/media/logo_bot.svg?view=azure-bot-service-4.0\')'
+        }
+      };
+      this.state = {
+        directLine: null,
+        avatarState: false, // Sets value to false; Is updated to true after login
+        // Sets the default styleOptions used during rendering
+        styleOptions: {
+          botAvatarImage: 'https://docs.microsoft.com/en-us/azure/bot-service/v4sdk/media/logo_bot.svg?view=azure-bot-service-4.0',
+          botAvatarInitials: 'BF',
+          //userAvatarImage: 'https://github.com/compulim.png?size=64',
+          //userAvatarInitials: 'WC'
+        }
+      };
+      const store = window.WebChat.createStore({}, ({ dispatch }) => next => action => {
+        if (action.type === 'DIRECT_LINE/CONNECT_FULFILLED') {
+          dispatch({
+            type: 'WEB_CHAT/SEND_EVENT',
+            payload: {
+              name: 'webchat/join'
+            }
+          });
+        }
+        if (action.type === 'DIRECT_LINE/INCOMING_ACTIVITY'
+          && action.payload.activity.attachments
+          && 0 in action.payload.activity.attachments
+          && this.state.avatarState === false) {
+          let attachments = action.payload.activity.attachments;
+          if ('content' in attachments[0] && 'images' in attachments[0].content) {
+           this.setState(() => ({
+             styleOptions: {
+                userAvatarImage: attachments[0].content.images[0].url
+                //userAvatarInitials: 'WW'
+             },
+             avatarState: true
+           }));
+          }
+        }
+        return next(action);
+      });
+      const secret = '8IE0zTFYOG8.JcxJAa7lzJrFJBo357Oe0T9BNHABaktjIctcw0NZLK8';
+      const res = await fetch('https://directline.botframework.com/v3/directline/tokens/generate', {
+        headers: {
+          Authorization: `Bearer ${secret}`,
+        },
+        method: 'POST'
+      });
+      const { token } = await res.json();
+      //const directLine = window.WebChat.createDirectLine({
+      //    secret: '8IE0zTFYOG8.JcxJAa7lzJrFJBo357Oe0T9BNHABaktjIctcw0NZLK8'
+      //})
+      const subscriptionKey = '18f056bb05ef48178fbdef787c7b0a02';
+      //const res = await fetch('https://mybottest002.azurewebsites.net/directline/token', { method: 'POST' });
+      //const { token } = await res.json();
+      const directLine = window.WebChat.createDirectLine({ token });
+      window.WebChat.renderWebChat({
+        directLine,
+        store,
+        locale: 'en-US',
+        webSpeechPonyfillFactory: await createCognitiveServicesSpeechServicesPonyfillFactory({
+          region: 'eastasia',
+          speechRecognitionEndpointId: 'https://eastasia.api.cognitive.microsoft.com/sts/v1.0/issuetoken',
+          subscriptionKey,
+          textNormalization: 'lexical'
+        }),
+        styleOptions: this.state.styleOptions
+        //styleSet
+      }, document.getElementById('webchat'));
+      document.querySelector('#webchat > *').focus();
+    })().catch(err => console.error(err));
+  </script>
+</body>
+
 </html>

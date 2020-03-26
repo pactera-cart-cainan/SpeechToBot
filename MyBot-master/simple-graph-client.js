@@ -124,38 +124,50 @@ class SimpleGraphClient {
                 dateTime: endDate.toJSON(),
                 timeZone: "Pacific Standard Time"
             },
-            
+
             availabilityViewInterval: 60
         };
 
         let res = await this.graphClient.api('/me/calendar/getSchedule')
-           .version('beta')
-           .post(scheduleInformation);
+            .version('beta')
+            .post(scheduleInformation);
 
         return res;
-        // return await this.graphClient
-        //     .api('/me/calendar/getSchedule')
-        //     .version('beta')
-        //     .post({
-        //         schedules: ['cainan@pactera.com'],
-        //         startTime: {
-        //             //dateTime: startDate.toJSON(),
-        //             dateTime: '2020-03-09 09:00:00',
-        //             timeZone: 'Pacific Standard Time'
-        //         },
-        //         endTime: {
-        //             //dateTime: endDate.toJSON(),
-        //             dateTime: '2020-03-09 18:00:00',
-        //             timeZone: 'Pacific Standard Time'
-        //         },
-        //         availabilityViewInterval: 60
-        //     }, (error, res) => {
-        //         if (error) {
-        //             throw error;
-        //         } else {
-        //             return res;
-        //         }
-        //     });
+    }
+
+    /**
+     * @param {string} id room id.
+     * @param {string} mailAddress Email address
+     * @param {string} startTime start time.
+     * @param {string} endtime end time.
+     */
+    async getRoomSchedule(id, mailAddress, startTime, endTime) {
+        //options['startTime'];
+        var date1 = new Date().getFullYear() + "-" + (new Date().getMonth() + 1) + "-" + new Date().getDate();
+        var temp = date1 + ' ' + startTime;
+        const startDate = new Date(Date.parse(temp));
+        //options['endTime'];
+        temp = date1 + ' ' + endTime;
+        const endDate = new Date(Date.parse(temp));
+        const scheduleInformation = {
+            schedules: [mailAddress],
+            startTime: {
+                dateTime: startDate.toJSON(),
+                timeZone: "China Standard Time"
+            },
+            endTime: {
+                dateTime: endDate.toJSON(),
+                timeZone: "China Standard Time"
+            },
+
+            availabilityViewInterval: 30
+        };
+        var roomSchedule = "/users/" + id + "/calendar/getSchedule";
+        let res = await this.graphClient.api(roomSchedule)
+            .version('v1.0')
+            .post(scheduleInformation);
+
+        return res;
     }
 
     async getFindRooms() {
@@ -167,10 +179,24 @@ class SimpleGraphClient {
             });
     }
 
+    /**
+     * @param {string} roomName Rooms name.
+     */
+    async getRooms(roomName) {
+        var filers = "startswith(givenName," + "'" + roomName + "'" + ")";
+        return await this.graphClient
+            .api('/users')
+            .version('v1.0')
+            .filter(filers)
+            .get().then((res) => {
+                return res;
+            });
+    }
+
     async getEvents() {
         return await this.graphClient
             .api('/me/events')
-            .header('Prefer','outlook.timezone="Pacific Standard Time"')
+            .header('Prefer', 'outlook.timezone="Pacific Standard Time"')
             .version('beta')
             .select('subject,organizer,attendees,start,end,location')
             .get().then((res) => {
@@ -192,31 +218,31 @@ class SimpleGraphClient {
      * @param {var} options
      */
     async addEvents(options) {
-        
+
         //options['startTime'];
         var date1 = new Date().getFullYear() + "-" + (new Date().getMonth() + 1) + "-" + new Date().getDate();
-        var temp = date1 +  ' ' + options['startTime'][0].value;
+        var temp = date1 + ' ' + options['startTime'][0].value;
         const startDate = new Date(Date.parse(temp));
         //options['endTime'];
-        temp = date1 +  ' ' + options['endTime'][0].value;
+        temp = date1 + ' ' + options['endTime'][0].value;
         const endDate = new Date(Date.parse(temp));
         const event = {
             subject: options['subject'],
             body: {
-              contentType: "HTML",
-              content: options['content']
+                contentType: "HTML",
+                content: options['content']
             },
             start: {
                 //dateTime: options['startTime'],
                 dateTime: startDate.toJSON(),
-                timeZone: "Pacific Standard Time"
+                timeZone: "China Standard Time"
             },
             end: {
                 //dateTime: options['endTime'],
                 dateTime: endDate.toJSON(),
-                timeZone: "Pacific Standard Time"
+                timeZone: "China Standard Time"
             },
-            location:{
+            location: {
                 displayName: options['room']
             },
             attendees: [],
@@ -226,25 +252,42 @@ class SimpleGraphClient {
                     address: options['organizer']
                 }
             }
-        };    
+        };
         const parts = options['participants'].split(',');
         if (Array.isArray(parts)) {
             for (let cnt = 0; cnt < parts.length; cnt++) {
                 const name = parts[cnt];
                 var temp = {
-                    emailAddress : {
-                        address : name
+                    emailAddress: {
+                        address: name
                     },
-                    type : "required"
+                    type: "required"
                 }
                 event.attendees.push(temp);
             }
         }
         let res = await this.graphClient
             .api('/me/events')
-            .header('Prefer','outlook.timezone="Pacific Standard Time"')
+            .header('Prefer', 'outlook.timezone="Pacific Standard Time"')
             .post(event);
         return res;
+    }
+
+    /**
+    * Collects the user's photo.
+    */
+    async getPhoto() {
+        return await this.graphClient
+            .api('/me/photo/$value')
+            .responseType('ArrayBuffer')
+            .version('beta')
+            .get()
+            .then((res) => {
+                return res;
+            })
+            .catch((err) => {
+                console.log(err);
+            }); 
     }
 }
 

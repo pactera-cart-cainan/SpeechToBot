@@ -2,14 +2,16 @@
 // Licensed under the MIT License.
 
 const { ChoicePrompt, DialogSet, DialogTurnStatus, OAuthPrompt, TextPrompt, DateTimePrompt, WaterfallDialog } = require('botbuilder-dialogs');
+const { ActivityTypes, CardFactory } = require('botbuilder');
 const { LogoutDialog } = require('./logoutDialog');
 const { OAuthHelpers } = require('../oAuthHelpers');
 
 const MAIN_WATERFALL_DIALOG = 'mainWaterfallDialog';
 const OAUTH_PROMPT = 'oAuthPrompt';
 const CHOICE_PROMPT = 'choicePrompt';
-const MEET_WATERFALL_DIALOG = 'meetWaterfallDialog';　
+const MEET_WATERFALL_DIALOG = 'meetWaterfallDialog';
 const TEXT_PROMPT = 'textPrompt';
+const TAP_PROMPT = 'tap_prompt';
 
 class MainDialog extends LogoutDialog {
     constructor() {
@@ -27,12 +29,14 @@ class MainDialog extends LogoutDialog {
                 this.promptStep.bind(this),
                 this.loginStep.bind(this),
                 this.commandStep.bind(this),
+                this.showMessageStep.bind(this),
                 this.processStep.bind(this)
             ]))
             .addDialog(new WaterfallDialog(MEET_WATERFALL_DIALOG, [
                 async (step) => {
                     // Ask the meeting suject
                     return await step.prompt('sujectPrompt', `Meeting's suject is?`);
+
                 },
                 async (step) => {
                     // Remember the meeting suject
@@ -56,17 +60,17 @@ class MainDialog extends LogoutDialog {
                     return await step.prompt('endTimePrompt', `Meeting's end time is?`);
                 },
                 async (step) => {
-                     // Remember the meeting end time
-                     //step.values['endTime'] = step.result;
-                     step.stack[0].state.values['endTime'] = step.result;
-                     // Ask the meeting's room
-                     return await step.prompt('textPrompt', `Meeting's room is?`);
+                    // Remember the meeting end time
+                    //step.values['endTime'] = step.result;
+                    step.stack[0].state.values['endTime'] = step.result;
+                    // Ask the meeting's room
+                    return await step.prompt('textPrompt', `Meeting's room is?`);
                 },
                 async (step) => {
-                     // Remember the meeting localtion
-                     step.stack[0].state.values['room'] = step.result;
-                     // Ask the meeting's participants
-                     return await step.prompt('textPrompt', `Meeting's participants have?(use ',' to separate)`);
+                    // Remember the meeting localtion
+                    step.stack[0].state.values['room'] = step.result;
+                    // Ask the meeting's participants
+                    return await step.prompt('textPrompt', `Meeting's participants have?(use ',' to separate)`);
                 },
                 async (step) => {
                     // Remember the meeting participants
@@ -76,6 +80,7 @@ class MainDialog extends LogoutDialog {
             ]));
 
         // Add prompts
+        this.addDialog(new TextPrompt(TAP_PROMPT, () => true));
         this.addDialog(new TextPrompt('sujectPrompt'));
         this.addDialog(new DateTimePrompt('startTimePrompt'));
         this.addDialog(new DateTimePrompt('endTimePrompt'));
@@ -110,14 +115,15 @@ class MainDialog extends LogoutDialog {
         const tokenResponse = step.result;
         if (tokenResponse) {
             await step.context.sendActivity('You are now logged in.');
-            return await step.prompt(TEXT_PROMPT, { prompt: 'Would you like to do? (type \'me\', \'send <EMAIL>\', \'recent\',\'rooms\',\'meeting\'  or \'schedule\')' });
+            //return await step.prompt(TEXT_PROMPT, { prompt: 'Would you like to do? (type \'me\', \'send <EMAIL>\', \'recent\',\'rooms\',\'meeting\'  or \'schedule\')' });           
+            return await step.prompt(TEXT_PROMPT);
         }
         await step.context.sendActivity('Login was not successful please try again.');
         return await step.endDialog();
     }
 
     async commandStep(step) {
- 
+
         // Call the prompt again because we need the token. The reasons for this are:
         // 1. If the user is already logged in we do not need to store the token locally in the bot and worry
         // about refreshing it. We can always just call the prompt again to get the token.
@@ -135,12 +141,83 @@ class MainDialog extends LogoutDialog {
                     const command = parts[cnt];
 
                     switch (command) {
-                    case 'meeting':
-                        step.values['command'] = step.result;
-                        return await step.beginDialog(MEET_WATERFALL_DIALOG);
-                    default:
-                        step.values['command'] = step.result;
-                        return await step.beginDialog(OAUTH_PROMPT);
+                        case 'メニュー':
+                            step.values['command'] = step.result;
+                            const card = CardFactory.adaptiveCard({
+                                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                                "type": "AdaptiveCard",
+                                "version": "1.0",
+                                "body": [
+                                    {
+                                        "type": "ColumnSet",
+                                        "columns": [
+                                            {
+                                                "type": "Column",
+                                                "width": "stretch",
+                                                "items": [
+                                                    {
+                                                        "type": "ActionSet",
+                                                        "actions": [
+                                                            {
+                                                                "type": "Action.Submit",
+                                                                "title": "今日の予定",
+                                                                "data": { "step": "1" }
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "type": "Column",
+                                                "width": "stretch",
+                                                "items": [
+                                                    {
+                                                        "type": "ActionSet",
+                                                        "actions": [
+                                                            {
+                                                                "type": "Action.Submit",
+                                                                "title": "今週の予定",
+                                                                "data": { "step": "2" }
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "ColumnSet",
+                                        "columns": [
+                                            {
+                                                "type": "Column",
+                                                "width": "stretch",
+                                                "items": [
+                                                    {
+                                                        "type": "ActionSet",
+                                                        "actions": [
+                                                            {
+                                                                "type": "Action.Submit",
+                                                                "title": "予定を登録",
+                                                                "data": { "step": "3" }
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "type": "Column",
+                                                "width": "stretch"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            });
+                            const reply = ({ type: ActivityTypes.Message });
+                            reply.attachments = [card];
+                            return await step.prompt(TAP_PROMPT, { prompt: reply });
+                        //return await step.beginDialog(MEET_WATERFALL_DIALOG);
+                        default:
+                            return await step.beginDialog(OAUTH_PROMPT);
                     }
                 }
             }
@@ -148,6 +225,20 @@ class MainDialog extends LogoutDialog {
             await step.context.sendActivity('We couldn\'t log you in. Please try again later.');
         }
         //return await step.beginDialog(OAUTH_PROMPT);
+    }
+
+    async showMessageStep(step) {
+        if (step.context.activity.value.step == '1') { // 今日の予定
+            step.values['command'] = 'schedule';
+            await step.context.sendActivity('今日の予定');
+            return await step.beginDialog(OAUTH_PROMPT);
+        } else if (step.context.activity.value.step == '2') { // 今週の予定
+            await step.context.sendActivity('今週の予定');
+            return await step.endDialog();
+        } else if (step.context.activity.value.step == '3') { // 予定を登録
+            await step.context.sendActivity('今予定を登録');
+            return await step.endDialog();
+        }
     }
 
     async processStep(step) {
@@ -165,39 +256,38 @@ class MainDialog extends LogoutDialog {
                         const command = parts[cnt];
 
                         switch (command) {
-                        case 'me':
-                            await OAuthHelpers.listMe(step.context, tokenResponse);
-                            break;
-                        case 'send':
-                            await OAuthHelpers.sendMail(step.context, tokenResponse, parts[1]);
-                            break;
-                        case 'recent':
-                            await OAuthHelpers.listRecentMail(step.context, tokenResponse);
-                            break;
-                        case 'rooms':
-                            await OAuthHelpers.getFindRooms(step.context, tokenResponse);
-                            break;
-                        case 'schedule':
-                            await OAuthHelpers.getSchedule(step.context, tokenResponse);
-                            break;
-                        case 'event':
-                            await OAuthHelpers.getEvents(step.context, tokenResponse);
-                            break;
-                        case 'meeting':
-                            var options = {
-                                subject : step.values['subject'],
-                                content : step.values['content'],
-                                startTime : step.values['startTime'],
-                                endTime : step.values['endTime'],
-                                room : step.values['room'],
-                                participants : step.values['participants'],
-                                organizer : ''
-                            }
-                            await OAuthHelpers.addEvents(step.context, tokenResponse, options);
-                            break;
-                        default:
-                            //await step.context.sendActivity(`Your token is ${ tokenResponse.token }`);
-                            break;
+                            case 'me':
+                                await OAuthHelpers.listMe(step.context, tokenResponse);
+                                break;
+                            case 'send':
+                                await OAuthHelpers.sendMail(step.context, tokenResponse, parts[1]);
+                                break;
+                            case 'recent':
+                                await OAuthHelpers.listRecentMail(step.context, tokenResponse);
+                                break;
+                            case 'rooms':
+                                await OAuthHelpers.getFindRooms(step.context, tokenResponse);
+                                break;
+                            case 'schedule':
+                                await OAuthHelpers.getSchedule(step.context, tokenResponse);
+                                break;
+                            case 'event':
+                                await OAuthHelpers.getEvents(step.context, tokenResponse);
+                                break;
+                            case 'meeting':
+                                var options = {
+                                    subject: step.values['subject'],
+                                    content: step.values['content'],
+                                    startTime: step.values['startTime'],
+                                    endTime: step.values['endTime'],
+                                    room: step.values['room'],
+                                    participants: step.values['participants'],
+                                    organizer: ''
+                                }
+                                await OAuthHelpers.addEvents(step.context, tokenResponse, options);
+                                break;
+                            default:
+                                break;
                         }
                     }
                 }
@@ -205,7 +295,7 @@ class MainDialog extends LogoutDialog {
             return await step.endDialog();
         } else {
             await step.context.sendActivity('We couldn\'t log you in. Please try again later.');
-        }  
+        }
     }
 }
 

@@ -31,9 +31,9 @@ class OAuthHelpers {
         await client.sendMail(
             emailAddress,
             'Message from a bot!',
-            `Hi there! I had this message sent from a bot. - Your friend, ${ me.displayName }`
+            `Hi there! I had this message sent from a bot. - Your friend, ${me.displayName}`
         );
-        await context.sendActivity(`I sent a message to ${ emailAddress } from your account.`);
+        await context.sendActivity(`I sent a message to ${emailAddress} from your account.`);
     }
 
     static async getSchedule(context, tokenResponse) {
@@ -71,7 +71,7 @@ class OAuthHelpers {
         } else {
             scheduleInfo = 'There are not Schedule information.';
         }
-        
+
         await context.sendActivity(scheduleInfo);
     }
 
@@ -89,14 +89,14 @@ class OAuthHelpers {
         // await context.sendActivity(`find rooms: ${ JSON.stringify(findRooms) }`);
         var roomMessage = '';
         for (let cnt = 0; cnt < findRooms.value.length; cnt++) {
-            const room = findRooms.value[cnt];  
-              
+            const room = findRooms.value[cnt];
+
             if (room.address != null && ('SH' == room.address.substr(0, 2)
-                ||'DL' == room.address.substr(0, 2))) {
+                || 'DL' == room.address.substr(0, 2))) {
                 var local = '';
                 if ('SH' == room.address.substr(0, 2)) {
                     local = 'ShangHai';
-                } else if ('DL' == room.address.substr(0, 2))  {
+                } else if ('DL' == room.address.substr(0, 2)) {
                     local = 'DaLian';
                 }
                 if (roomMessage == '') {
@@ -119,7 +119,7 @@ class OAuthHelpers {
         // Pull in the data from Microsoft Graph.
         const client = new SimpleGraphClient(tokenResponse.token);
         const events = await client.getEvents() || '';
-        await context.sendActivity(`Events: ${ JSON.stringify(events) }`);
+        await context.sendActivity(`Events: ${JSON.stringify(events)}`);
     }
 
     /**
@@ -148,38 +148,37 @@ class OAuthHelpers {
                 const name = parts[cnt];
                 var isfind = false;
                 for (let index = 0; index < contacts.value.length; index++) {
-                    const person = contacts.value[index]; 
+                    const person = contacts.value[index];
                     if (cnt == 0) {
                         if (contactsList == '') {
                             contactsList = person.displayName;
                         } else {
-                            contactsList +=  ',' + person.displayName;
+                            contactsList += ',' + person.displayName;
                         }
                     }
                     if (person.displayName == name) {
                         if (mailaddress == '') {
                             mailaddress = person.emailAddresses[0].address;
                         } else {
-                            mailaddress +=  ',' + person.emailAddresses[0].address;
+                            mailaddress += ',' + person.emailAddresses[0].address;
                         }
                         isfind = true;
                     }
                 }
                 if (!isfind) {
-                    return await context.sendActivity(`Participant(${ JSON.stringify(name) }) is does not exist.Contacts List(${ JSON.stringify(contactsList) })`);
+                    return await context.sendActivity(`Participant(${JSON.stringify(name)}) is not exist. Contacts List(${JSON.stringify(contactsList)})`);
                 }
             }
         }
         options['participants'] = mailaddress;
-        const rooms = await client.getFindRooms();
+        const rooms = await client.getRooms("SH-TH") || '';
         if (options['room'] != '') {
             var isfind = false;
             for (let cnt = 0; cnt < rooms.value.length; cnt++) {
-                const room = rooms.value[cnt];     
-                if (room.name == options['room']) {
+                const room = rooms.value[cnt];
+                if (room.givenName == options['room']) {
                     isfind = true;
-                    const schedule = await client.getSchedule(room.address) || '';
-                    var scheduleInfo = '';
+                    const schedule = await client.getRoomSchedule(room.id, room.mail, options['startTime'], options['endTime']) || '';
                     var moment = require('moment');
                     if (schedule != '' && schedule.value.length > 0 && schedule.value[0].scheduleItems.length > 0) {
                         for (let cnt = 0; cnt < schedule.value[0].scheduleItems.length; cnt++) {
@@ -187,21 +186,18 @@ class OAuthHelpers {
                             if (scheduleItem.status == 'busy') {
                                 var startTime = moment.parseZone(scheduleItem.start.dateTime).local().format('YYYY-MM-DD HH:mm:ss');
                                 var endTime = moment.parseZone(scheduleItem.end.dateTime).local().format('YYYY-MM-DD HH:mm:ss');
-                                if ((startTime < options['startTime'] && options['startTime'] <  endTime)
-                                    || (startTime < options['endTime'] && options['endTime'] <  endTime)) {
-                                    return await context.sendActivity(`Room(${ JSON.stringify(room.name) }) is busy at ` + startTime + ` to ` + endTime);
-                                }
+                                return await context.sendActivity(`Room(${JSON.stringify(room.name)}) is busy at ` + startTime + ` to ` + endTime);
                             }
                         }
                     }
                 }
             }
             if (!isfind) {
-                return await context.sendActivity(`Room(` + options['room'] + `}) is does not exist.`);
+                return await context.sendActivity(`Room(` + options['room'] + `) is not exist.`);
             }
         }
         const events = await client.addEvents(options) || '';
-        await context.sendActivity(`Events: ${ JSON.stringify(events) }`);
+        await context.sendActivity(`Events: ${JSON.stringify(events)}`);
     }
 
     /**
@@ -221,7 +217,7 @@ class OAuthHelpers {
         const me = await client.getMe();
         const manager = await client.getManager();
 
-        await context.sendActivity(`You are ${ me.displayName } and you report to ${ manager.displayName }.`);
+        await context.sendActivity(`You are ${me.displayName} and you report to ${manager.displayName}.`);
     }
 
     /**
@@ -244,7 +240,6 @@ class OAuthHelpers {
             if (messages.length > 5) {
                 numberOfMessages = 5;
             }
-
             const reply = { attachments: [], attachmentLayout: AttachmentLayoutTypes.Carousel };
             for (let cnt = 0; cnt < numberOfMessages; cnt++) {
                 const mail = messages[cnt];
@@ -253,13 +248,54 @@ class OAuthHelpers {
                     mail.bodyPreview,
                     [{ alt: 'Outlook Logo', url: 'https://botframeworksamples.blob.core.windows.net/samples/OutlookLogo.jpg' }],
                     [],
-                    { subtitle: `${ mail.from.emailAddress.name } <${ mail.from.emailAddress.address }>` }
+                    { subtitle: `${mail.from.emailAddress.name} <${mail.from.emailAddress.address}>` }
                 );
                 reply.attachments.push(card);
             }
             await context.sendActivity(reply);
         } else {
             await context.sendActivity('Unable to find any recent unread mail.');
+        }
+    }
+
+    /**
+ * Displays information about the user in the bot.
+ * @param {TurnContext} turnContext A TurnContext instance containing all the data needed for processing this conversation turn.
+ * @param {TokenResponse} tokenResponse A response that includes a user token.
+ */
+    static async loginData(turnContext, tokenResponse) {
+        if (!turnContext) {
+            throw new Error('OAuthHelpers.loginData(): `turnContext` cannot be undefined.');
+        }
+        if (!tokenResponse) {
+            throw new Error('OAuthHelpers.loginData(): `tokenResponse` cannot be undefined.');
+        }
+
+        try {
+            // Pull in the data from Microsoft Graph.
+            const client = new SimpleGraphClient(tokenResponse.token);
+            const me = await client.getMe();
+            const photoResponse = await client.getPhoto();
+
+            // Attaches user's profile photo to the reply activity.
+            if (photoResponse != null) {
+                let replyAttachment;
+                //const base64 = Buffer.from(photoResponse, 'binary').toString('base64');
+                //let base64 = Buffer.from(photoResponse).toString('base64');
+                //photoResponse.toString('base64');
+                //var photoBytes = ReadAsBytes(photoResponse);
+                //var result = Convert.ToBase64String(photoBytes);
+                //var base64 = new Buffer(photoResponse, 'base64');
+                //var base64 = Buffer.from(photoResponse.getBytes(), 'binary').toString('base64');
+                replyAttachment = {
+                    contentType: 'image/jpeg',
+                    contentUrl: `data:image/jpeg;base64,${ null }`
+                };
+                replyAttachment.displayName = me.displayName;
+                return (replyAttachment);
+            }
+        } catch (error) {
+            throw error;
         }
     }
 }
