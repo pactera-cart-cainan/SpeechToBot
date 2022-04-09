@@ -17,7 +17,7 @@
         "botbuilder-dialogs": "~4.7.0",
         "dotenv": "^8.2.0",
         "faker": "^4.1.0",
-        "moment": "^2.24.0",
+        "moment": "^2.29.2",
         "restify": "~8.4.0"
     },
     "devDependencies": {
